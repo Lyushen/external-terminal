@@ -1,0 +1,11 @@
+npm install -g vsce
+vsce package
+vsce publish
+https://marketplace.visualstudio.com/manage
+# Token:
+- Go to your Azure DevOps account page. https://dev.azure.com/
+- Sign in with your Microsoft account.
+- Under your profile, navigate to Personal Access Tokens (PAT).
+- Click New Token and generate a token with the following permissions:
+- Marketplace: Read and Write.
+- Copy the token

@@ -21,7 +21,6 @@ function activate(context) {
           return;
         }
 
-        // Convert single uri to array
         if (!Array.isArray(uris)) {
           uris = [uris];
         }
@@ -30,7 +29,7 @@ function activate(context) {
         const preferredTerminal = config.get('preferredTerminal', '');
         const additionalArgs = config.get('additionalArgs', []);
         const showNotification = config.get('showNotification', true);
-        const logLevel = config.get('logLevel', 'info'); // 'debug', 'info', 'error'
+        const logLevel = config.get('logLevel', 'info');
 
         const platform = process.platform;
 
@@ -40,9 +39,13 @@ function activate(context) {
           return;
         }
 
-        // Process each selected URI
         for (const uri of uris) {
-          const terminalCommand = await buildTerminalCommand(uri, platform, preferredTerminal, additionalArgs);
+          const terminalCommand = await buildTerminalCommand(
+            uri,
+            platform,
+            preferredTerminal,
+            additionalArgs
+          );
 
           if (terminalCommand) {
             if (showNotification) {
@@ -80,15 +83,16 @@ async function buildTerminalCommand(uri, platform, preferredTerminal, additional
   try {
     const stat = await vscode.workspace.fs.stat(uri);
     const isDirectory = stat.type === vscode.FileType.Directory;
+    const isFile = stat.type === vscode.FileType.File;
     const pathToOpen = isDirectory ? uri.fsPath : path.dirname(uri.fsPath);
 
-    const args = additionalArgs.map(arg => quoteArgument(arg));
+    const args = additionalArgs.map((arg) => quoteArgument(arg));
 
     switch (platform) {
       case 'darwin':
         return constructMacCommand(pathToOpen, args, preferredTerminal);
       case 'win32':
-        return constructWindowsCommand(pathToOpen, args, preferredTerminal);
+        return constructWindowsCommand(pathToOpen, args, preferredTerminal, isFile);
       case 'linux':
         return constructLinuxCommand(pathToOpen, args, preferredTerminal);
       default:
@@ -102,41 +106,69 @@ async function buildTerminalCommand(uri, platform, preferredTerminal, additional
 function constructMacCommand(pathToOpen, args, preferredTerminal) {
   const escapedPath = quoteArgument(pathToOpen);
   const additionalArgs = args.join(' ');
-  const terminal = preferredTerminal ? quoteArgument(preferredTerminal) : quoteArgument(
-    vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app')
-  );
+  const terminal = preferredTerminal
+    ? quoteArgument(preferredTerminal)
+    : quoteArgument(vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app'));
   return `open -a ${terminal} ${escapedPath} ${additionalArgs}`;
 }
 
-function constructWindowsCommand(pathToOpen, args, preferredTerminal) {
+function constructWindowsCommand(pathToOpen, args, preferredTerminal, isFile) {
   const escapedPath = quoteArgument(pathToOpen);
   const additionalArgs = args.join(' ');
-  const terminal = preferredTerminal ? quoteArgument(preferredTerminal) : quoteArgument(
-    vscode.workspace.getConfiguration('terminal.external').get('windowsExec', 'cmd.exe')
-  );
-  return `start "" ${terminal} ${additionalArgs} /k cd /d ${escapedPath}`;
+
+  let terminal = preferredTerminal
+    ? quoteArgument(preferredTerminal)
+    : quoteArgument(
+        vscode.workspace.getConfiguration('terminal.external').get('windowsExec', 'cmd.exe')
+      );
+
+  // Adjusting the detection of Windows Terminal
+  if (terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal')) {
+    // For Windows Terminal, use the '-d' option to set the starting directory
+    if (isFile) {
+      // If it's a file, open the terminal in the file's directory and execute the file
+      return `${terminal} ${additionalArgs} -d ${quoteArgument(
+        path.dirname(escapedPath)
+      )} cmd /k ${escapedPath}`;
+    } else {
+      // If it's a directory, open the terminal in that directory
+      return `${terminal} ${additionalArgs} -d ${escapedPath}`;
+    }
+  }
+
+  // For other terminals, use the default command construction
+  if (isFile) {
+    return `start "" ${terminal} ${additionalArgs} /k cd /d ${quoteArgument(
+      path.dirname(escapedPath)
+    )} && ${escapedPath}`;
+  } else {
+    return `start "" ${terminal} ${additionalArgs} /k cd /d ${escapedPath}`;
+  }
 }
 
 function constructLinuxCommand(pathToOpen, args, preferredTerminal) {
   const escapedPath = quoteArgument(pathToOpen);
   const additionalArgs = args.join(' ');
-  const terminal = preferredTerminal ? quoteArgument(preferredTerminal) : quoteArgument(
-    vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm')
-  );
+  const terminal = preferredTerminal
+    ? quoteArgument(preferredTerminal)
+    : quoteArgument(vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm'));
   return `${terminal} ${additionalArgs} -e 'cd ${escapedPath} && exec $SHELL'`;
 }
 
 function quoteArgument(arg) {
   if (process.platform === 'win32') {
-    // Escape characters and wrap with double quotes
+    // Escape special characters for Windows command line
     arg = arg.replace(/(["^&|<>%])/g, '^$1');
+    // Enclose the argument in double quotes
     return `"${arg}"`;
   } else {
-    // Escape single quotes
+    // Escape single quotes for Unix-like shells
     arg = arg.replace(/'/g, `'\\''`);
+    // Enclose the argument in single quotes
     return `'${arg}'`;
   }
 }
+
 
 function log(channel, message, level, configuredLevel) {
   const levels = ['debug', 'info', 'error'];

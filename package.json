@@ -3,11 +3,11 @@
     "name": "open-in-external-terminal",
   "displayName": "Open in External Terminal",
     "description": "An extension to open files or directories in the external (system) terminal.",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "engines": {
         "vscode": "^1.88.0"
     },
-    "publisher": "oleksiinikitin",
+    "publisher": "Oleksii1n",
     "repository": {
         "type": "git",
         "url": "https://github.com/Lyushen/vscode-ext-open-in-external-terminal"
