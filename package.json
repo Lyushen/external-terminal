@@ -1,0 +1,90 @@
+
+{    
+    "name": "open-in-external-terminal",
+  "displayName": "Open in External Terminal",
+    "description": "An extension to open files or directories in the external (system) terminal.",
+    "version": "1.0.0",
+    "engines": {
+        "vscode": "^1.88.0"
+    },
+    "publisher": "oleksiinikitin",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Lyushen/vscode-ext-open-in-external-terminal"
+    },
+    "license": "MIT",
+    "categories": [
+        "Other"
+    ],
+    "keywords": [
+        "terminal",
+        "system",
+        "external",
+        "open",
+        "shell",
+        "cmd",
+        "warp",
+        "powershell",
+        "bash",
+        "zsh",
+        "fish",
+        "wsl",
+        "linux",
+        "mac",
+        "windows"
+    ],
+    "activationEvents": [],
+    "main": "./src/extension.js",
+    "contributes": {
+        "commands": [
+        {
+            "command": "extension.openInSystemTerminal",
+            "title": "Open in External Terminal",
+            "category": "Open in Terminal"
+        }
+        ],
+        "menus": {
+        "explorer/context": [
+            {
+            "when": "resourceIsFolder || resourceFilename",
+            "command": "extension.openInSystemTerminal",
+            "group": "navigation@6"
+            }
+        ]
+        },
+        "configuration": {
+        "type": "object",
+        "title": "Open in External Terminal Settings",
+        "properties": {
+            "open-in-system-terminal.preferredTerminal": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Specify the full path to the terminal executable to use. Leave empty to use the system default."
+                },
+                "open-in-system-terminal.additionalArgs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Additional arguments to pass to the terminal command."
+                },
+                "open-in-system-terminal.showNotification": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show a notification when opening the terminal."
+                },
+                "open-in-system-terminal.logLevel": {
+                    "type": "string",
+                    "enum": [
+                        "debug",
+                        "info",
+                        "error"
+                    ],
+                    "default": "info",
+                    "description": "Set the logging level for the Output Channel."
+                }
+            }
+        }
+    }
+}
