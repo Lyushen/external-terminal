@@ -1,33 +1,35 @@
 # Open in External Terminal
 
-VS Code extension to open the current file or folder in your OS's default External (system) terminal (Command Prompt, Terminal.app, iTerm, etc.).
+Open files or directories in your system's default terminal directly from the Visual Studio Code File Explorer.
 
 ## Features
 
-- **Context Aware**: Right-click files or folders in the Explorer.
-- **Smart Detection**: Detects your OS (Windows, macOS, Linux).
-- **Windows Terminal Support**: Explicit support for `wt.exe`.
+- **Context Menu Integration**: Right-click on any file or folder in the Explorer and select **Open in External Terminal**.
+- **Smart Execution (Windows)**: 
+  - If you open a folder, the terminal opens in that folder.
+  - If you open a non-executable file (e.g., `.js`, `.txt`), the terminal opens in the file's directory.
+  - If you open a script or binary (e.g., `.bat`, `.cmd`, `.ps1`, `.exe`), the terminal opens and **automatically executes** the file. (was not tested on Linux)
+- **Windows Terminal Support**: seamless integration with `wt.exe`.
+- **Multi-Platform**: Works on Windows, macOS, and Linux.
+- **Customizable**: Configure your preferred terminal application and arguments.
 
 ## Usage
 
-1. Right-click a folder or file in the VS Code Explorer.
+1. Right-click on a file or folder in the VS Code Explorer sidebar.
 2. Select **Open in External Terminal**.
 
-Alternatively, open a file and run the command `Open in External Terminal` from the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`).
+## Extension Settings
 
-## Configuration
+This extension contributes the following settings:
 
-You can customize the behavior in **Settings** (`Cmd+,` or `Ctrl+,`):
+* `open-in-external-terminal.preferredTerminal`: The executable path or command for your terminal. 
+    * **Windows Default**: `cmd.exe` (or attempts to find Windows Terminal)
+    * **Mac Default**: `Terminal.app`
+    * **Linux Default**: `xterm`
+* `open-in-external-terminal.additionalArgs`: An array of arguments to pass to the terminal executable (e.g., `["-p", "Ubuntu"]` for Windows Terminal profiles).
+* `open-in-external-terminal.showNotification`: Enable or disable the notification popup when opening a terminal (Default: `true`).
+* `open-in-external-terminal.logLevel`: Level of logging in the Output channel (Default: `info`).
 
-*   `open-in-external-terminal.preferredTerminal`: Override the default terminal executable (e.g., `wt.exe`, `iterm`, `bash`).
-*   `open-in-external-terminal.additionalArgs`: Array of arguments to pass to the terminal executable.
-*   `open-in-external-terminal.logLevel`: Debugging level (`info`, `debug`, `error`).
-
-## Requirements
-
-*   **macOS**: Requires `open` command (built-in).
-*   **Linux**: Requires a terminal emulator installed (defaults to `xterm`, configurable to `gnome-terminal`, etc.).
-*   **Windows**: Uses `cmd`, `powershell`, or `wt.exe` (Windows Terminal).
 
 ## Usage
 Right-click on a file or folder in the Explorer and choose Open in External Terminal.

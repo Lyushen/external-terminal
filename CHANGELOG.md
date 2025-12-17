@@ -2,7 +2,8 @@
 
 ## 1.0.3
 
-- **Relative Path Notifications**: Notifications now display the path relative to your repository/workspace (e.g., `src/utils`) instead of the full absolute path.
+- **Relative Path Notifications**: Notifications now display the path relative to your repository/workspace (e.g., `RepoName/src/utils`) instead of the full absolute path.
+- **Robust Path Handling**: Improved logic for spaces in directory names when launching terminals on Windows.
 
 ## 1.0.2
 
