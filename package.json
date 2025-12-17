@@ -3,7 +3,7 @@
     "name": "open-in-external-terminal",
   "displayName": "Open in External Terminal",
     "description": "An extension to open files or directories in the external (system) terminal.",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "engines": {
         "vscode": "^1.88.0"
     },
