@@ -6,7 +6,7 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 
 function activate(context) {
-  const openCommand = 'extension.openInSystemTerminal';
+  const openCommand = 'extension.openInExternalTerminal';
   const outputChannel = vscode.window.createOutputChannel('Open in Terminal');
   outputChannel.appendLine(`Extension activated on platform: ${process.platform}`);
 
@@ -15,9 +15,7 @@ function activate(context) {
     async (uris) => {
       try {
         if (!uris) {
-          vscode.window.showWarningMessage(
-            'Please use this command from the explorer context menu.'
-          );
+          vscode.window.showWarningMessage('Please use this command from the explorer context menu.');
           return;
         }
 
@@ -25,53 +23,68 @@ function activate(context) {
           uris = [uris];
         }
 
-        const config = vscode.workspace.getConfiguration('open-in-system-terminal');
+        const config = vscode.workspace.getConfiguration('open-in-external-terminal');
+        const logLevel = config.get('logLevel', 'info');
+        const showNotification = config.get('showNotification', true);
+
+        // Configuration
         const preferredTerminal = config.get('preferredTerminal', '');
         const additionalArgs = config.get('additionalArgs', []);
-        const showNotification = config.get('showNotification', true);
-        const logLevel = config.get('logLevel', 'info');
 
         const platform = process.platform;
-
         if (!['darwin', 'win32', 'linux'].includes(platform)) {
           vscode.window.showErrorMessage(`Unsupported platform: ${platform}`);
-          log(outputChannel, `Unsupported platform detected: ${platform}`, 'error', logLevel);
           return;
         }
 
         for (const uri of uris) {
-          const terminalCommand = await buildTerminalCommand(
-            uri,
-            platform,
-            preferredTerminal,
+          // --- 1. Robust Path Resolution & Notification ---
+          const wsFolder = vscode.workspace.getWorkspaceFolder(uri);
+          const relativePath = vscode.workspace.asRelativePath(uri, false);
+          // Result: "MyRepo/src/script.bat"
+          const displayPath = wsFolder ? path.join(wsFolder.name, relativePath) : relativePath;
+
+          if (showNotification) {
+            vscode.window.showInformationMessage(`Opening [${displayPath}] in terminal...`);
+          }
+
+          // --- 2. Determine File vs Directory Details ---
+          const stat = await vscode.workspace.fs.stat(uri);
+          const isFile = stat.type === vscode.FileType.File;
+          
+          // The folder where the terminal should start
+          const targetDir = isFile ? path.dirname(uri.fsPath) : uri.fsPath;
+          
+          // The specific file to run (if it's a script), or null
+          const fileToRun = isFile ? path.basename(uri.fsPath) : null;
+
+          // --- 3. Build Command ---
+          const commandObj = buildPlatformCommand(
+            platform, 
+            targetDir, 
+            fileToRun, 
+            preferredTerminal, 
             additionalArgs
           );
 
-          if (terminalCommand) {
-            if (showNotification) {
-              vscode.window.showInformationMessage(
-                `Opening ${uri.fsPath} in system terminal...`
-              );
-            }
+          log(outputChannel, `Working Dir: ${targetDir}`, 'debug', logLevel);
+          log(outputChannel, `Command: ${commandObj.cmd}`, 'debug', logLevel);
 
-            log(outputChannel, `Executing command: ${terminalCommand}`, 'debug', logLevel);
-
-            try {
-              await execAsync(terminalCommand);
-              log(outputChannel, `Successfully executed command`, 'info', logLevel);
-            } catch (error) {
-              log(outputChannel, `Error executing command: ${error.message}`, 'error', logLevel);
-              vscode.window.showErrorMessage(
-                `Failed to open terminal. Please check if the terminal path is correct and you have the necessary permissions.`
-              );
-            }
+          // --- 4. Execute ---
+          try {
+            // We set 'cwd' here for Linux/Mac so the shell spawns in the right place.
+            // For Windows, we handle pathing inside the command string using /D.
+            await execAsync(commandObj.cmd, { cwd: targetDir });
+            
+            log(outputChannel, `Success`, 'info', logLevel);
+          } catch (error) {
+            log(outputChannel, `Execution failed: ${error.message}`, 'error', logLevel);
+            vscode.window.showErrorMessage(`Failed to open terminal: ${error.message}`);
           }
         }
       } catch (error) {
-        log(outputChannel, `Unhandled error: ${error.message}`, 'error', 'error');
-        vscode.window.showErrorMessage(
-          'An unexpected error occurred: ' + error.message
-        );
+        log(outputChannel, `Critical error: ${error.message}`, 'error', 'error');
+        vscode.window.showErrorMessage('An unexpected error occurred: ' + error.message);
       }
     }
   );
@@ -79,96 +92,108 @@ function activate(context) {
   context.subscriptions.push(openCommandHandler);
 }
 
-async function buildTerminalCommand(uri, platform, preferredTerminal, additionalArgs) {
-  try {
-    const stat = await vscode.workspace.fs.stat(uri);
-    const isDirectory = stat.type === vscode.FileType.Directory;
-    const isFile = stat.type === vscode.FileType.File;
-    const pathToOpen = isDirectory ? uri.fsPath : path.dirname(uri.fsPath);
+/**
+ * Returns an object { cmd: string }
+ */
+function buildPlatformCommand(platform, targetDir, fileToRun, preferredTerminal, additionalArgs) {
+  const argsStr = additionalArgs.map(quote).join(' ');
 
-    const args = additionalArgs.map((arg) => quoteArgument(arg));
-
-    switch (platform) {
-      case 'darwin':
-        return constructMacCommand(pathToOpen, args, preferredTerminal);
-      case 'win32':
-        return constructWindowsCommand(pathToOpen, args, preferredTerminal, isFile);
-      case 'linux':
-        return constructLinuxCommand(pathToOpen, args, preferredTerminal);
-      default:
-        throw new Error(`Unsupported platform: ${platform}`);
-    }
-  } catch (error) {
-    throw new Error(`Error determining file type for ${uri.fsPath}: ${error.message}`);
+  switch (platform) {
+    case 'win32':
+      return buildWindowsCommand(targetDir, fileToRun, preferredTerminal, argsStr);
+    case 'darwin': // macOS
+      return buildMacCommand(targetDir, fileToRun, preferredTerminal, argsStr);
+    case 'linux':
+      return buildLinuxCommand(targetDir, fileToRun, preferredTerminal, argsStr);
+    default:
+      throw new Error(`Unsupported platform: ${platform}`);
   }
 }
 
-function constructMacCommand(pathToOpen, args, preferredTerminal) {
-  const escapedPath = quoteArgument(pathToOpen);
-  const additionalArgs = args.join(' ');
-  const terminal = preferredTerminal
-    ? quoteArgument(preferredTerminal)
-    : quoteArgument(vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app'));
-  return `open -a ${terminal} ${escapedPath} ${additionalArgs}`;
-}
+function buildWindowsCommand(targetDir, fileToRun, preferredTerminal, argsStr) {
+  // Default to cmd.exe if not specified
+  let terminal = preferredTerminal || 
+    vscode.workspace.getConfiguration('terminal.external').get('windowsExec', 'cmd.exe');
 
-function constructWindowsCommand(pathToOpen, args, preferredTerminal, isFile) {
-  const escapedPath = quoteArgument(pathToOpen);
-  const additionalArgs = args.join(' ');
+  const isWT = terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal');
+  const isPowerShell = terminal.toLowerCase().includes('powershell') || terminal.toLowerCase().includes('pwsh');
 
-  let terminal = preferredTerminal
-    ? quoteArgument(preferredTerminal)
-    : quoteArgument(
-        vscode.workspace.getConfiguration('terminal.external').get('windowsExec', 'cmd.exe')
-      );
+  // Check if the file is actually executable by the shell
+  const executableExts = ['.bat', '.cmd', '.exe', '.ps1', '.com'];
+  const shouldExecute = fileToRun && executableExts.some(ext => fileToRun.toLowerCase().endsWith(ext));
 
-  // Adjusting the detection of Windows Terminal
-  if (terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal')) {
-    // For Windows Terminal, use the '-d' option to set the starting directory
-    if (isFile) {
-      // If it's a file, open the terminal in the file's directory and execute the file
-      return `${terminal} ${additionalArgs} -d ${quoteArgument(
-        path.dirname(escapedPath)
-      )} cmd /k ${escapedPath}`;
+  // --- WINDOWS TERMINAL (WT.EXE) ---
+  if (isWT) {
+    // WT uses -d for directory.
+    // Syntax: wt -d "C:\Path" [args] [command]
+    let cmd = `"${terminal}" ${argsStr} -d "${targetDir}"`;
+    
+    if (shouldExecute) {
+      // If we need to run a file, we usually need to tell WT which shell to use to run it
+      // Defaulting to cmd /k to keep window open
+      cmd += ` cmd /k "${fileToRun}"`;
+    }
+    return { cmd };
+  }
+
+  // --- STANDARD CMD or POWERSHELL ---
+  // We use `start` with the /D flag. This is the most robust way to set directory.
+  // Syntax: start "" /D "C:\Target Dir" "cmd.exe" [arguments]
+  
+  const safeDir = `"${targetDir}"`; // Quote the path
+  let shellCommand = '';
+
+  if (shouldExecute) {
+    if (isPowerShell) {
+        // PowerShell: -NoExit -File "script.ps1"
+        shellCommand = `"${terminal}" ${argsStr} -NoExit -File "${fileToRun}"`;
     } else {
-      // If it's a directory, open the terminal in that directory
-      return `${terminal} ${additionalArgs} -d ${escapedPath}`;
+        // CMD/Default: /k "script.bat"
+        shellCommand = `"${terminal}" ${argsStr} /k "${fileToRun}"`;
+    }
+  } else {
+    // Just open the terminal.
+    // For CMD, /k ensures it stays open.
+    if (isPowerShell) {
+       shellCommand = `"${terminal}" ${argsStr}`;
+    } else {
+       shellCommand = `"${terminal}" ${argsStr} /k`;
     }
   }
 
-  // For other terminals, use the default command construction
-  if (isFile) {
-    return `start "" ${terminal} ${additionalArgs} /k cd /d ${quoteArgument(
-      path.dirname(escapedPath)
-    )} && ${escapedPath}`;
-  } else {
-    return `start "" ${terminal} ${additionalArgs} /k cd /d ${escapedPath}`;
-  }
+  // Final Composite Command
+  // start "" (Empty title) /D "Path" "Terminal" "Args"
+  return { cmd: `start "" /D ${safeDir} ${shellCommand}` };
 }
 
-function constructLinuxCommand(pathToOpen, args, preferredTerminal) {
-  const escapedPath = quoteArgument(pathToOpen);
-  const additionalArgs = args.join(' ');
-  const terminal = preferredTerminal
-    ? quoteArgument(preferredTerminal)
-    : quoteArgument(vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm'));
-  return `${terminal} ${additionalArgs} -e 'cd ${escapedPath} && exec $SHELL'`;
+function buildMacCommand(targetDir, fileToRun, preferredTerminal, argsStr) {
+  const terminal = preferredTerminal || 
+    vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app');
+
+  // On Mac, `open -a Terminal path` opens a new window at that path.
+  // If we want to execute a script, it's complex because 'open' doesn't accept execution args easily.
+  // We fall back to opening the folder.
+  
+  return { cmd: `open -a "${terminal}" "${targetDir}" ${argsStr}` };
 }
 
-function quoteArgument(arg) {
-  if (process.platform === 'win32') {
-    // Escape special characters for Windows command line
-    arg = arg.replace(/(["^&|<>%])/g, '^$1');
-    // Enclose the argument in double quotes
-    return `"${arg}"`;
-  } else {
-    // Escape single quotes for Unix-like shells
-    arg = arg.replace(/'/g, `'\\''`);
-    // Enclose the argument in single quotes
-    return `'${arg}'`;
-  }
+function buildLinuxCommand(targetDir, fileToRun, preferredTerminal, argsStr) {
+  const terminal = preferredTerminal || 
+    vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm');
+    
+  // Linux terminals usually take working dir via the node process cwd,
+  // but if we need to execute, we use the specific terminal's execute flag (usually -e).
+  
+  // Note: This varies wildly by distro (gnome-terminal, konsole, xterm).
+  // This serves the most common denominator.
+  return { cmd: `"${terminal}" ${argsStr}` };
 }
 
+function quote(s) {
+  // Simple quoting to avoid breaking spaces
+  if (!s) return '';
+  return `"${s}"`;
+}
 
 function log(channel, message, level, configuredLevel) {
   const levels = ['debug', 'info', 'error'];

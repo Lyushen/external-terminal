@@ -1,6 +1,8 @@
-Document changes for each version.
-
 # Change Log
+
+## 1.0.3
+
+- **Relative Path Notifications**: Notifications now display the path relative to your repository/workspace (e.g., `src/utils`) instead of the full absolute path.
 
 ## 1.0.2
 

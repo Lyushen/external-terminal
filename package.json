@@ -3,14 +3,14 @@
     "name": "open-in-external-terminal",
   "displayName": "Open in External Terminal",
     "description": "An extension to open files or directories in the external (system) terminal.",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "engines": {
         "vscode": "^1.88.0"
     },
     "publisher": "Oleksii1n",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Lyushen/vscode-ext-open-in-external-terminal"
+        "url": "https://github.com/Lyushen/external-terminal"
     },
     "license": "MIT",
     "categories": [
@@ -38,7 +38,7 @@
     "contributes": {
         "commands": [
         {
-            "command": "extension.openInSystemTerminal",
+            "command": "extension.openInExternalTerminal",
             "title": "Open in External Terminal",
             "category": "Open in Terminal"
         }
@@ -47,7 +47,7 @@
         "explorer/context": [
             {
             "when": "resourceIsFolder || resourceFilename",
-            "command": "extension.openInSystemTerminal",
+            "command": "extension.openInExternalTerminal",
             "group": "navigation@6"
             }
         ]
@@ -56,12 +56,12 @@
         "type": "object",
         "title": "Open in External Terminal Settings",
         "properties": {
-            "open-in-system-terminal.preferredTerminal": {
+            "open-in-external-terminal.preferredTerminal": {
                     "type": "string",
                     "default": "",
                     "description": "Specify the full path to the terminal executable to use. Leave empty to use the system default."
                 },
-                "open-in-system-terminal.additionalArgs": {
+                "open-in-external-terminal.additionalArgs": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -69,12 +69,12 @@
                     "default": [],
                     "description": "Additional arguments to pass to the terminal command."
                 },
-                "open-in-system-terminal.showNotification": {
+                "open-in-external-terminal.showNotification": {
                     "type": "boolean",
                     "default": true,
                     "description": "Show a notification when opening the terminal."
                 },
-                "open-in-system-terminal.logLevel": {
+                "open-in-external-terminal.logLevel": {
                     "type": "string",
                     "enum": [
                         "debug",
