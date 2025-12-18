@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.7]
+
+### Added
+- **Key Biding**: Added a trigger and a shortcut for the hotkey in the extension settings that could open the current file in the external terminal.
+
 ## [1.0.5]
 
 ### Added

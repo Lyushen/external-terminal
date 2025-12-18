@@ -6,41 +6,56 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 
 function activate(context) {
-  const openCommand = 'extension.openInExternalTerminal';
   const outputChannel = vscode.window.createOutputChannel('Open in Terminal');
   outputChannel.appendLine(`Extension activated on platform: ${process.platform}`);
 
+  // --- Main Command ---
   let openCommandHandler = vscode.commands.registerCommand(
-    openCommand,
-    async (uris) => {
+    'extension.openInExternalTerminal',
+    async (uri, multipleUris) => {
       try {
-        if (!uris) {
-          vscode.window.showWarningMessage('Please use this command from the explorer context menu.');
+        let urisToProcess = [];
+
+        // 1. Handle Multi-select from Explorer (2nd arg contains all selected)
+        if (multipleUris && Array.isArray(multipleUris) && multipleUris.length > 0) {
+            urisToProcess = multipleUris;
+        } 
+        // 2. Handle Single-select from Explorer (1st arg is the clicked item)
+        else if (uri instanceof vscode.Uri) {
+            urisToProcess = [uri];
+        } 
+        // 3. Handle Hotkey / Command Palette (Args are undefined -> Use Active Tab)
+        else {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document.uri) {
+                // Ensure we only open files, not "Untitled" or output windows
+                if (editor.document.uri.scheme === 'file') {
+                    urisToProcess = [editor.document.uri];
+                }
+            }
+        }
+
+        // If still empty, we can't do anything
+        if (urisToProcess.length === 0) {
+          vscode.window.showWarningMessage('No file selected or active editor found to open.');
           return;
         }
 
-        if (!Array.isArray(uris)) {
-          uris = [uris];
-        }
-
+        // --- Configuration Loading ---
         const config = vscode.workspace.getConfiguration('open-in-external-terminal');
         const logLevel = config.get('logLevel', 'info');
         const showNotification = config.get('showNotification', true);
-
-        // Configuration
         const preferredTerminal = config.get('preferredTerminal', '');
         const additionalArgs = config.get('additionalArgs', []);
         
-        // 1. Native Executables (OS runs these directly)
+        // Load Settings
         const configExts = config.get('executableExtensions', ['.bat', '.cmd', '.exe', '.ps1', '.sh', '.command']);
         const executableExtensions = configExts.map(e => e.toLowerCase());
 
-        // 2. Interpreter Mappings (We prefix these with a binary)
-        // Default: { ".py": "python", ".js": "node", ".rb": "ruby" }
         const interpreterMappings = config.get('interpreterMappings', {
             '.py': 'python',
             '.js': 'node',
-            '.ts': 'ts-node' 
+            '.rb': 'ruby'
         });
 
         const platform = process.platform;
@@ -49,22 +64,22 @@ function activate(context) {
           return;
         }
 
-        for (const uri of uris) {
-          const wsFolder = vscode.workspace.getWorkspaceFolder(uri);
-          const relativePath = vscode.workspace.asRelativePath(uri, false);
+        // --- Execution Loop ---
+        for (const targetUri of urisToProcess) {
+          const wsFolder = vscode.workspace.getWorkspaceFolder(targetUri);
+          const relativePath = vscode.workspace.asRelativePath(targetUri, false);
           const displayPath = wsFolder ? path.join(wsFolder.name, relativePath) : relativePath;
 
           if (showNotification) {
             vscode.window.showInformationMessage(`Opening ${displayPath} in terminal...`);
           }
 
-          const stat = await vscode.workspace.fs.stat(uri);
+          const stat = await vscode.workspace.fs.stat(targetUri);
           const isFile = stat.type === vscode.FileType.File;
           
-          const targetDir = isFile ? path.dirname(uri.fsPath) : uri.fsPath;
-          const fileName = isFile ? path.basename(uri.fsPath) : null;
+          const targetDir = isFile ? path.dirname(targetUri.fsPath) : targetUri.fsPath;
+          const fileName = isFile ? path.basename(targetUri.fsPath) : null;
 
-          // --- Build Command ---
           const commandObj = buildPlatformCommand(
             platform, 
             targetDir, 
@@ -72,7 +87,7 @@ function activate(context) {
             preferredTerminal, 
             additionalArgs,
             executableExtensions,
-            interpreterMappings // PASS NEW CONFIG
+            interpreterMappings
           );
 
           log(outputChannel, `Working Dir: ${targetDir}`, 'debug', logLevel);
@@ -93,8 +108,23 @@ function activate(context) {
     }
   );
 
+  // --- Helper Command: Open Keybinding Settings ---
+  // You can call this command from a "Welcome" notification or a button in the UI
+  let configureKeybindingHandler = vscode.commands.registerCommand(
+    'extension.openInExternalTerminal.configureKeybinding',
+    () => {
+        vscode.commands.executeCommand(
+            'workbench.action.openGlobalKeybindings', 
+            'extension.openInExternalTerminal'
+        );
+    }
+  );
+
   context.subscriptions.push(openCommandHandler);
+  context.subscriptions.push(configureKeybindingHandler);
 }
+
+// --- Platform Builders ---
 
 function buildPlatformCommand(platform, targetDir, fileName, preferredTerminal, additionalArgs, executableExtensions, interpreterMappings) {
   const argsStr = additionalArgs.map(quote).join(' ');
@@ -105,16 +135,14 @@ function buildPlatformCommand(platform, targetDir, fileName, preferredTerminal, 
   if (fileName) {
     const ext = path.extname(fileName).toLowerCase();
     
-    // Check 1: Is it a mapped interpreter file? (e.g. .py)
+    // Check 1: Mapped Interpreters (Higher Priority)
     if (interpreterMappings[ext]) {
         shouldExecute = true;
-        // Result: "python filename.py"
         finalExecutionString = `${interpreterMappings[ext]} "${fileName}"`;
     }
-    // Check 2: Is it a native executable? (e.g. .bat)
+    // Check 2: Native Executables
     else if (executableExtensions.includes(ext) || executableExtensions.includes(fileName.toLowerCase())) {
         shouldExecute = true;
-        // Result: "filename.bat"
         finalExecutionString = `"${fileName}"`;
     }
   }
@@ -138,32 +166,24 @@ function buildWindowsCommand(targetDir, executionString, preferredTerminal, args
   const isWT = terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal');
   const isPowerShell = terminal.toLowerCase().includes('powershell') || terminal.toLowerCase().includes('pwsh');
 
-  // --- WINDOWS TERMINAL ---
   if (isWT) {
     let cmd = `"${terminal}" ${argsStr} -d "${targetDir}"`;
     if (shouldExecute) {
-      // Windows Terminal accepts the command after the profile/args
-      // Note: We use cmd /k to keep window open if the command finishes instantly
       cmd += ` cmd /k "${executionString}"`;
     }
     return { cmd };
   }
 
-  // --- STANDARD CMD or POWERSHELL ---
   const safeDir = `"${targetDir}"`;
   let shellCommand = '';
 
   if (shouldExecute) {
     if (isPowerShell) {
-        // PowerShell cannot use -File for things like "python script.py". 
-        // We must use -NoExit "command"
         shellCommand = `"${terminal}" ${argsStr} -NoExit "${executionString}"`;
     } else {
-        // CMD: /k "python script.py" or /k "script.bat"
         shellCommand = `"${terminal}" ${argsStr} /k "${executionString}"`;
     }
   } else {
-    // Just opening directory
     if (isPowerShell) {
        shellCommand = `"${terminal}" ${argsStr}`;
     } else {
@@ -177,30 +197,16 @@ function buildWindowsCommand(targetDir, executionString, preferredTerminal, args
 function buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, shouldExecute, interpreterMappings) {
   const terminal = preferredTerminal || 
     vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app');
-
-  // macOS 'open' is tricky with arguments like "python file.py".
-  // It prefers opening files via association.
   
-  if (shouldExecute) {
-      // If we have an interpreter mapping, we can't easily use "open" to run "python file.py"
-      // inside Terminal.app without AppleScript.
-      // However, if the user provided a CUSTOM terminal (like iTerm executable), 
-      // we might treat it like Linux.
-      
-      const isCustomTerminal = !terminal.endsWith('.app');
+  const isCustomTerminal = !terminal.endsWith('.app');
 
+  if (shouldExecute) {
       if (isCustomTerminal) {
-           // Treat like Linux/Generic
-           // We need to reconstruct the execution string here as Mac logic separates it
            const ext = path.extname(fileName).toLowerCase();
            const prefix = interpreterMappings[ext] ? interpreterMappings[ext] + ' ' : '';
            return { cmd: `"${terminal}" ${argsStr} "${prefix}./${fileName}"` };
       } 
-      
-      // Fallback for Standard Terminal.app with interpreter:
-      // We rely on file associations or executable bit.
-      // NOTE: "open -a Terminal file.py" opens it in text editor usually, unless associated.
-      // This is a limitation on Mac without using 'osascript'.
+      // Fallback for Terminal.app: try to run file directly
       return { cmd: `open "${fileName}"` };
   }
 
@@ -212,17 +218,9 @@ function buildLinuxCommand(targetDir, executionString, preferredTerminal, argsSt
     vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm');
     
   if (shouldExecute) {
-      // Standard Linux terminals use -e to execute a command string
-      // executionString is "python file.py" or "./script.sh"
-      
-      // If it's a raw file (script.sh), ensure ./ prefix if needed, 
-      // but executionString coming in usually has command prefix or is just name
-      
-      // Safety check: if executionString is JUST a filename, add ./
       if (!executionString.includes(' ')) {
           executionString = `./${executionString}`;
       }
-
       return { cmd: `"${terminal}" ${argsStr} -e "${executionString}"` };
   }
 

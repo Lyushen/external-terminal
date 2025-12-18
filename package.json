@@ -3,7 +3,7 @@
     "name": "open-in-external-terminal",
     "displayName": "Open in External Terminal",
     "description": "An extension to open files or directories in the external (system) terminal.",
-    "version": "1.0.5",
+    "version": "1.0.7",
     "engines": {
         "vscode": "^1.88.0"
     },
@@ -36,74 +36,97 @@
     ],
     "activationEvents": [],
     "main": "./src/extension.js",
-    "contributes": {
-        "commands": [
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.openInExternalTerminal",
+        "title": "Open in External Terminal",
+        "category": "Open in Terminal",
+        "icon": "images/icon-gray.png"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
         {
-            "command": "extension.openInExternalTerminal",
-            "title": "Open in External Terminal",
-            "category": "Open in Terminal",
-            "icon": "images/icon-gray.png"
+          "command": "extension.openInExternalTerminal",
+          "group": "navigation",
+          "when": "filesExplorerFocus"
         }
-        ],
-        "menus": {
-            "explorer/context": [
-                {
-                "when": "resourceIsFolder || resourceFilename",
-                "command": "extension.openInExternalTerminal",
-                "group": "navigation@6"
-                }
-            ]
+      ],
+      "editor/title": [
+        {
+          "command": "extension.openInExternalTerminal",
+          "group": "navigation",
+          "when": "resourceScheme == file"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Open in External Terminal",
+      "properties": {
+        "open-in-external-terminal.preferredTerminal": {
+          "type": "string",
+          "default": "",
+          "description": "The executable path or command for your terminal (e.g., 'wt.exe', 'xterm'). Leave empty for system default."
         },
-        "configuration": {
-            "type": "object",
-            "title": "Open in External Terminal Settings",
-            "properties": {
-                "open-in-external-terminal.interpreterMappings": {
-                    "type": "object",
-                    "default": {
-                        ".py": "python",
-                        ".js": "node",
-                        ".rb": "ruby"
-                    },
-                    "markdownDescription": "Map file extensions to specific interpreters or executables. \n\nExamples:\n- `{\".py\": \"python\"}` runs `python filename.py`\n- `{\".js\": \"/usr/local/bin/node\"}` runs `/usr/local/bin/node filename.js`\n\n**Note:** This takes precedence over `executableExtensions`.",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "open-in-external-terminal.preferredTerminal": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Specify the full path to the terminal executable to use. Leave empty to use the system default."
-                },
-                "open-in-external-terminal.additionalArgs": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": [],
-                    "description": "Additional arguments to pass to the terminal command."
-                },
-                "open-in-external-terminal.executableExtensions": {
-                    "type": "array",
-                    "default": [".bat", ".cmd", ".exe", ".ps1", ".sh", ".command"],
-                    "description": "List of file extensions that should be executed immediately. Files not in this list will have their parent folder opened instead."
-                },
-                "open-in-external-terminal.showNotification": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Show a notification when opening the terminal."
-                },
-                "open-in-external-terminal.logLevel": {
-                    "type": "string",
-                    "enum": [
-                        "debug",
-                        "info",
-                        "error"
-                    ],
-                    "default": "info",
-                    "description": "Set the logging level for the Output Channel."
-                }
-            }
+        "open-in-external-terminal.additionalArgs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments to pass to the terminal executable."
+        },
+        "open-in-external-terminal.interpreterMappings": {
+          "type": "object",
+          "default": {
+            ".py": "python",
+            ".js": "node",
+            ".rb": "ruby",
+            ".go": "go run"
+          },
+          "markdownDescription": "Map file extensions to specific interpreters. \n\nExamples:\n- `{\".py\": \"python\"}` executes `python file.py`\n- `{\".js\": \"/usr/bin/node\"}` executes `/usr/bin/node file.js`\n\n**Note:** Mappings defined here take precedence over `executableExtensions`.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "open-in-external-terminal.executableExtensions": {
+          "type": "array",
+          "default": [
+            ".bat",
+            ".cmd",
+            ".exe",
+            ".ps1",
+            ".sh",
+            ".command"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of file extensions that should be executed directly by the OS. Ignored if the extension is found in 'interpreterMappings'."
+        },
+        "open-in-external-terminal.showNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification when opening the terminal."
+        },
+        "open-in-external-terminal.logLevel": {
+          "type": "string",
+          "default": "info",
+          "enum": [
+            "debug",
+            "info",
+            "error"
+          ],
+          "description": "Logging level for the output channel."
+        },
+        "open-in-external-terminal.a_hotkeyHelper": {
+          "type": "boolean",
+          "default": null,
+          "markdownDescription": "⬇️ **[Click here to Configure Keyboard Shortcut](command:workbench.action.openGlobalKeybindings?%22extension.openInExternalTerminal%22)** \n\nVS Code manages hotkeys separately from settings. Click the link above to assign a key (like `F5` or `Ctrl+Alt+T`) to this extension.",
+          "description": "Helper link to open Keybindings menu"
         }
+      }
     }
+  }
 }

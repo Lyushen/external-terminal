@@ -13,6 +13,7 @@ Unlike the built-in VS Code command, this extension supports **Smart Execution**
 - **Smart Execution**: 
   - Right-click a configured script (e.g., `.py`, `.js`, `.bat`, `.sh`): The terminal opens and **automatically runs the file**.
 - **Interpreter Support**: Map extensions to specific binaries (e.g., run `.ts` with `ts-node` or `.py` with `python3`).
+- **Key Bind**: A hotkey opens the current file. If defined avobe, it allows you to execute immediately without mouse manipulations.
 - **Windows Terminal Support**: Seamless integration with `wt.exe`.
 - **Cross-Platform**: Works on Windows, macOS, and Linux.
 
