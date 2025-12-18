@@ -1,9 +1,9 @@
 
 {    
     "name": "open-in-external-terminal",
-  "displayName": "Open in External Terminal",
+    "displayName": "Open in External Terminal",
     "description": "An extension to open files or directories in the external (system) terminal.",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "engines": {
         "vscode": "^1.88.0"
     },
@@ -16,6 +16,7 @@
     "categories": [
         "Other"
     ],
+    "icon": "images/icon-gray.png",
     "keywords": [
         "terminal",
         "system",
@@ -40,23 +41,36 @@
         {
             "command": "extension.openInExternalTerminal",
             "title": "Open in External Terminal",
-            "category": "Open in Terminal"
+            "category": "Open in Terminal",
+            "icon": "images/icon-gray.png"
         }
         ],
         "menus": {
-        "explorer/context": [
-            {
-            "when": "resourceIsFolder || resourceFilename",
-            "command": "extension.openInExternalTerminal",
-            "group": "navigation@6"
-            }
-        ]
+            "explorer/context": [
+                {
+                "when": "resourceIsFolder || resourceFilename",
+                "command": "extension.openInExternalTerminal",
+                "group": "navigation@6"
+                }
+            ]
         },
         "configuration": {
         "type": "object",
         "title": "Open in External Terminal Settings",
         "properties": {
-            "open-in-external-terminal.preferredTerminal": {
+                "open-in-external-terminal.interpreterMappings": {
+                    "type": "object",
+                    "default": {
+                        ".py": "python",
+                        ".js": "node",
+                        ".rb": "ruby"
+                    },
+                    "markdownDescription": "Map file extensions to specific interpreters or executables. \n\nExamples:\n- `{\".py\": \"python\"}` runs `python filename.py`\n- `{\".js\": \"/usr/local/bin/node\"}` runs `/usr/local/bin/node filename.js`\n\n**Note:** This takes precedence over `executableExtensions`.",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "open-in-external-terminal.preferredTerminal": {
                     "type": "string",
                     "default": "",
                     "description": "Specify the full path to the terminal executable to use. Leave empty to use the system default."
@@ -68,6 +82,11 @@
                     },
                     "default": [],
                     "description": "Additional arguments to pass to the terminal command."
+                },
+                "open-in-external-terminal.executableExtensions": {
+                    "type": "array",
+                    "default": [".bat", ".cmd", ".exe", ".ps1", ".sh", ".command"],
+                    "description": "List of file extensions that should be executed immediately. Files not in this list will have their parent folder opened instead."
                 },
                 "open-in-external-terminal.showNotification": {
                     "type": "boolean",
