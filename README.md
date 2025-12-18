@@ -70,4 +70,5 @@ Right-click on a file or folder in the Explorer and choose Open in External Term
 
 Please submit an issue request on a [GitHub Issues Page](https://github.com/Lyushen/external-terminal/issues/new/choose)
 
-```{include=CHANGELOG.md}
+## Changelog
+See [CHANGELOG.md](CHANGELOG.md)
