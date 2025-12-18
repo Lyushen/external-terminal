@@ -1,5 +1,4 @@
 node_modules
 *.vsix
-/open-in-external-terminal-1.0.0.vsix
-/.vscode
-/build.bat
+.vscode
+build.bat

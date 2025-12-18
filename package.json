@@ -55,9 +55,9 @@
             ]
         },
         "configuration": {
-        "type": "object",
-        "title": "Open in External Terminal Settings",
-        "properties": {
+            "type": "object",
+            "title": "Open in External Terminal Settings",
+            "properties": {
                 "open-in-external-terminal.interpreterMappings": {
                     "type": "object",
                     "default": {
