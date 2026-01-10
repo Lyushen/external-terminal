@@ -19,11 +19,11 @@ function activate(context) {
         // 1. Handle Multi-select from Explorer (2nd arg contains all selected)
         if (multipleUris && Array.isArray(multipleUris) && multipleUris.length > 0) {
             urisToProcess = multipleUris;
-        } 
+        }
         // 2. Handle Single-select from Explorer (1st arg is the clicked item)
         else if (uri instanceof vscode.Uri) {
             urisToProcess = [uri];
-        } 
+        }
         // 3. Handle Hotkey / Command Palette (Args are undefined -> Use Active Tab)
         else {
             const editor = vscode.window.activeTextEditor;
@@ -47,7 +47,7 @@ function activate(context) {
         const showNotification = config.get('showNotification', true);
         const preferredTerminal = config.get('preferredTerminal', '');
         const additionalArgs = config.get('additionalArgs', []);
-        
+
         // Load Settings
         const configExts = config.get('executableExtensions', ['.bat', '.cmd', '.exe', '.ps1', '.sh', '.command']);
         const executableExtensions = configExts.map(e => e.toLowerCase());
@@ -76,15 +76,15 @@ function activate(context) {
 
           const stat = await vscode.workspace.fs.stat(targetUri);
           const isFile = stat.type === vscode.FileType.File;
-          
+
           const targetDir = isFile ? path.dirname(targetUri.fsPath) : targetUri.fsPath;
           const fileName = isFile ? path.basename(targetUri.fsPath) : null;
 
           const commandObj = buildPlatformCommand(
-            platform, 
-            targetDir, 
-            fileName, 
-            preferredTerminal, 
+            platform,
+            targetDir,
+            fileName,
+            preferredTerminal,
             additionalArgs,
             executableExtensions,
             interpreterMappings
@@ -114,7 +114,7 @@ function activate(context) {
     'extension.openInExternalTerminal.configureKeybinding',
     () => {
         vscode.commands.executeCommand(
-            'workbench.action.openGlobalKeybindings', 
+            'workbench.action.openGlobalKeybindings',
             'extension.openInExternalTerminal'
         );
     }
@@ -127,14 +127,14 @@ function activate(context) {
 // --- Platform Builders ---
 
 function buildPlatformCommand(platform, targetDir, fileName, preferredTerminal, additionalArgs, executableExtensions, interpreterMappings) {
-  const argsStr = additionalArgs.map(quote).join(' ');
+  const argsStr = additionalArgs.map(substitute({cwd: targetDir})).map(quote).join(' ');
 
   let shouldExecute = false;
   let finalExecutionString = '';
 
   if (fileName) {
     const ext = path.extname(fileName).toLowerCase();
-    
+
     // Check 1: Mapped Interpreters (Higher Priority)
     if (interpreterMappings[ext]) {
         shouldExecute = true;
@@ -150,7 +150,7 @@ function buildPlatformCommand(platform, targetDir, fileName, preferredTerminal, 
   switch (platform) {
     case 'win32':
       return buildWindowsCommand(targetDir, finalExecutionString, preferredTerminal, argsStr, shouldExecute);
-    case 'darwin': 
+    case 'darwin':
       return buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, shouldExecute, interpreterMappings);
     case 'linux':
       return buildLinuxCommand(targetDir, finalExecutionString, preferredTerminal, argsStr, shouldExecute);
@@ -160,7 +160,7 @@ function buildPlatformCommand(platform, targetDir, fileName, preferredTerminal, 
 }
 
 function buildWindowsCommand(targetDir, executionString, preferredTerminal, argsStr, shouldExecute) {
-  let terminal = preferredTerminal || 
+  let terminal = preferredTerminal ||
     vscode.workspace.getConfiguration('terminal.external').get('windowsExec', 'cmd.exe');
 
   const isWT = terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal');
@@ -195,9 +195,9 @@ function buildWindowsCommand(targetDir, executionString, preferredTerminal, args
 }
 
 function buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, shouldExecute, interpreterMappings) {
-  const terminal = preferredTerminal || 
+  const terminal = preferredTerminal ||
     vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app');
-  
+
   const isCustomTerminal = !terminal.endsWith('.app');
 
   if (shouldExecute) {
@@ -205,7 +205,7 @@ function buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, should
            const ext = path.extname(fileName).toLowerCase();
            const prefix = interpreterMappings[ext] ? interpreterMappings[ext] + ' ' : '';
            return { cmd: `"${terminal}" ${argsStr} "${prefix}./${fileName}"` };
-      } 
+      }
       // Fallback for Terminal.app: try to run file directly
       return { cmd: `open "${fileName}"` };
   }
@@ -214,9 +214,9 @@ function buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, should
 }
 
 function buildLinuxCommand(targetDir, executionString, preferredTerminal, argsStr, shouldExecute) {
-  const terminal = preferredTerminal || 
+  const terminal = preferredTerminal ||
     vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm');
-    
+
   if (shouldExecute) {
       if (!executionString.includes(' ')) {
           executionString = `./${executionString}`;
@@ -230,6 +230,12 @@ function buildLinuxCommand(targetDir, executionString, preferredTerminal, argsSt
 function quote(s) {
   if (!s) return '';
   return `"${s}"`;
+}
+
+function substitute(o) {
+  return s => Object.entries(o).map(
+    ([k, v]) => s.replace(`\${${k}}`, v)
+  )
 }
 
 function log(channel, message, level, configuredLevel) {
