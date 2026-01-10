@@ -22,8 +22,10 @@
         "noMisusedPromises": "error",
         "useMaxParams": "info",
         "useExplicitType": "info",
-        // "noSecrets": "info",
         "noUnnecessaryConditions": "info"
+      },
+      "security": {
+        "noSecrets": "info"
       },
       "correctness": {
         "recommended": true,

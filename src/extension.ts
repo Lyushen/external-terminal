@@ -1,16 +1,39 @@
 import * as vscode from 'vscode'
-import { default as cp, exec } from 'child_process'
-import path from 'path'
-import { promisify } from 'util'
+import { type default as chproc, exec } from 'node:child_process'
+import path from 'node:path'
+import { promisify } from 'node:util'
 
-const execAsync = promisify(exec);
+// --- Types ---
 
-function activate(context: vscode.ExtensionContext) {
+interface ICommandObject {
+  cmd: string
+}
+
+interface ICmdBuldArgs {
+  platform: string,
+  targetDir: string,
+  fileName: string | null,
+  preferredTerminal: string,
+  additionalArgs: string[],
+  executableExtensions: string[],
+  interpreterMappings: Record<string, string>
+}
+
+type ExecAsync = (
+  command: string,
+  options: chproc.ExecOptionsWithStringEncoding
+) => chproc.PromiseWithChild<{stdout: string; stderr: string;}>;
+
+// --- Extension ---
+
+const EXEC_ASYNC: ExecAsync = promisify(exec);
+
+function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel('Open in Terminal');
   outputChannel.appendLine(`Extension activated on platform: ${process.platform}`);
 
   // --- Main Command ---
-  let openCommandHandler = vscode.commands.registerCommand(
+  const openCommandHandler = vscode.commands.registerCommand(
     'extension.openInExternalTerminal',
     async (uri, multipleUris) => {
       try {
@@ -27,7 +50,7 @@ function activate(context: vscode.ExtensionContext) {
         // 3. Handle Hotkey / Command Palette (Args are undefined -> Use Active Tab)
         else {
             const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.uri) {
+            if (editor?.document.uri) {
                 // Ensure we only open files, not "Untitled" or output windows
                 if (editor.document.uri.scheme === 'file') {
                     urisToProcess = [editor.document.uri];
@@ -80,7 +103,7 @@ function activate(context: vscode.ExtensionContext) {
           const targetDir = isFile ? path.dirname(targetUri.fsPath) : targetUri.fsPath;
           const fileName = isFile ? path.basename(targetUri.fsPath) : null;
 
-          const commandObj = buildPlatformCommand(
+          const commandObj = buildPlatformCommand({
             platform,
             targetDir,
             fileName,
@@ -88,31 +111,31 @@ function activate(context: vscode.ExtensionContext) {
             additionalArgs,
             executableExtensions,
             interpreterMappings
-          );
+          });
 
           log(outputChannel, `Working Dir: ${targetDir}`, 'debug', logLevel);
           log(outputChannel, `Command: ${commandObj.cmd}`, 'debug', logLevel);
 
           try {
-            await execAsync(commandObj.cmd, { cwd: targetDir });
+            await EXEC_ASYNC(commandObj.cmd, { cwd: targetDir });
             log(outputChannel, `Success`, 'info', logLevel);
           } catch (error) {
-            const msg = (error as cp.ExecException).message
+            const msg = (error as chproc.ExecException).message
             log(outputChannel, `Execution failed: ${msg}`, 'error', logLevel);
             vscode.window.showErrorMessage(`Failed to open terminal: ${msg}`);
           }
         }
       } catch (error) {
-        const msg = (error as cp.ExecException).message
+        const msg = (error as chproc.ExecException).message
         log(outputChannel, `Critical error: ${msg}`, 'error', 'error');
-        vscode.window.showErrorMessage('An unexpected error occurred: ' + msg);
+        vscode.window.showErrorMessage(`An unexpected error occurred: ${msg}`);
       }
     }
   );
 
   // --- Helper Command: Open Keybinding Settings ---
   // You can call this command from a "Welcome" notification or a button in the UI
-  let configureKeybindingHandler = vscode.commands.registerCommand(
+  const configureKeybindingHandler = vscode.commands.registerCommand(
     'extension.openInExternalTerminal.configureKeybinding',
     () => {
         vscode.commands.executeCommand(
@@ -128,69 +151,60 @@ function activate(context: vscode.ExtensionContext) {
 
 // --- Platform Builders ---
 
-function buildPlatformCommand(
-  platform: string,
-  targetDir: string,
-  fileName: string | null,
-  preferredTerminal: string,
-  additionalArgs: string[],
-  executableExtensions: string[],
-  interpreterMappings: Record<string, string>
-) {
-  const argsStr = additionalArgs.map(substitute({cwd: targetDir})).map(quote).join(' ');
+function buildPlatformCommand(args: ICmdBuldArgs): {cmd: string} {
+  const argsStr = args.additionalArgs.map(substitute({cwd: args.targetDir})).map(quote).join(' ');
 
   let shouldExecute = false;
   let finalExecutionString = '';
 
-  if (fileName) {
-    const ext = path.extname(fileName).toLowerCase();
+  if (args.fileName) {
+    const ext = path.extname(args.fileName).toLowerCase();
 
     // Check 1: Mapped Interpreters (Higher Priority)
-    if (interpreterMappings[ext]) {
+    if (args.interpreterMappings[ext]) {
         shouldExecute = true;
-        finalExecutionString = `${interpreterMappings[ext]} "${fileName}"`;
+        finalExecutionString = `${args.interpreterMappings[ext]} "${args.fileName}"`;
     }
     // Check 2: Native Executables
-    else if (executableExtensions.includes(ext) || executableExtensions.includes(fileName.toLowerCase())) {
+    else if (args.executableExtensions.includes(ext) || args.executableExtensions.includes(args.fileName.toLowerCase())) {
         shouldExecute = true;
-        finalExecutionString = `"${fileName}"`;
+        finalExecutionString = `"${args.fileName}"`;
     }
   }
 
-  switch (platform) {
+  switch (args.platform) {
     case 'win32':
-      return buildWindowsCommand(targetDir, finalExecutionString, preferredTerminal, argsStr, shouldExecute);
+      return buildWindowsCommand(args, finalExecutionString, argsStr, shouldExecute);
     case 'darwin':
-      return buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, shouldExecute, interpreterMappings);
+      return buildMacCommand(args, argsStr, shouldExecute);
     case 'linux':
-      return buildLinuxCommand(targetDir, finalExecutionString, preferredTerminal, argsStr, shouldExecute);
+      return buildLinuxCommand(args, finalExecutionString , argsStr, shouldExecute);
     default:
-      throw new Error(`Unsupported platform: ${platform}`);
+      throw new Error(`Unsupported platform: ${args.platform}`);
   }
 }
 
 function buildWindowsCommand(
-  targetDir: string,
+  args: ICmdBuldArgs,
   executionString: string,
-  preferredTerminal: string,
   argsStr: string,
   shouldExecute: boolean
-) {
-  let terminal = preferredTerminal ||
+): ICommandObject {
+  const terminal = args.preferredTerminal ||
     vscode.workspace.getConfiguration('terminal.external').get('windowsExec', 'cmd.exe');
 
-  const isWT = terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal');
+  const isWt = terminal.toLowerCase().includes('wt.exe') || terminal.toLowerCase().includes('windows terminal');
   const isPowerShell = terminal.toLowerCase().includes('powershell') || terminal.toLowerCase().includes('pwsh');
 
-  if (isWT) {
-    let cmd = `"${terminal}" ${argsStr} -d "${targetDir}"`;
+  if (isWt) {
+    let cmd = `"${terminal}" ${argsStr} -d "${args.targetDir}"`;
     if (shouldExecute) {
       cmd += ` cmd /k "${executionString}"`;
     }
     return { cmd };
   }
 
-  const safeDir = `"${targetDir}"`;
+  const safeDir = `"${args.targetDir}"`;
   let shellCommand = '';
 
   if (shouldExecute) {
@@ -211,39 +225,35 @@ function buildWindowsCommand(
 }
 
 function buildMacCommand(
-  targetDir: string,
-  fileName: string | null,
-  preferredTerminal: string,
+  args: ICmdBuldArgs,
   argsStr: string,
   shouldExecute: boolean,
-  interpreterMappings: Record<string, string>
-) {
-  const terminal = preferredTerminal ||
+): ICommandObject {
+  const terminal = args.preferredTerminal ||
     vscode.workspace.getConfiguration('terminal.external').get('osxExec', 'Terminal.app');
 
   const isCustomTerminal = !terminal.endsWith('.app');
 
-  if (shouldExecute && fileName) {
+  if (shouldExecute && args.fileName) {
       if (isCustomTerminal) {
-           const ext = path.extname(fileName).toLowerCase();
-           const prefix = interpreterMappings[ext] ? interpreterMappings[ext] + ' ' : '';
-           return { cmd: `"${terminal}" ${argsStr} "${prefix}./${fileName}"` };
+           const ext = path.extname(args.fileName).toLowerCase();
+           const prefix = args.interpreterMappings[ext] ? `${args.interpreterMappings[ext]} ` : '';
+           return { cmd: `"${terminal}" ${argsStr} "${prefix}./${args.fileName}"` };
       }
       // Fallback for Terminal.app: try to run file directly
-      return { cmd: `open "${fileName}"` };
+      return { cmd: `open "${args.fileName}"` };
   }
 
-  return { cmd: `open -a "${terminal}" "${targetDir}" ${argsStr}` };
+  return { cmd: `open -a "${terminal}" "${args.targetDir}" ${argsStr}` };
 }
 
 function buildLinuxCommand(
-  _targetDir: string,
+  args: ICmdBuldArgs,
   executionString: string,
-  preferredTerminal: string,
   argsStr: string,
   shouldExecute: boolean
-) {
-  const terminal = preferredTerminal ||
+): ICommandObject {
+  const terminal = args.preferredTerminal ||
     vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm');
 
   if (shouldExecute) {
@@ -256,7 +266,7 @@ function buildLinuxCommand(
   return { cmd: `"${terminal}" ${argsStr}` };
 }
 
-function quote(s: string) {
+function quote(s: string): string {
   if (!s) return '';
   return `"${s}"`;
 }
@@ -275,14 +285,14 @@ function log(
   message: string,
   level: string,
   configuredLevel: string
-) {
+): void {
   const levels = ['debug', 'info', 'error'];
   if (levels.indexOf(level) >= levels.indexOf(configuredLevel)) {
     channel.appendLine(`[${level.toUpperCase()}] ${message}`);
   }
 }
 
-function deactivate() {}
+function deactivate(): void {}
 
 export {
   activate,
