@@ -83,7 +83,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Arguments to pass to the terminal executable."
+          "description": "Arguments to pass to the terminal executable. Available variables: `${cwd}` - directory in which terminal will open."
         },
         "open-in-external-terminal.interpreterMappings": {
           "type": "object",
