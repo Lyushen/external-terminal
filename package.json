@@ -1,41 +1,49 @@
-
-{    
-    "name": "open-in-external-terminal",
-    "displayName": "Open in External Terminal",
-    "description": "An extension to open files or directories in the external (system) terminal.",
-    "version": "1.0.7",
-    "engines": {
-        "vscode": "^1.88.0"
-    },
-    "publisher": "Oleksii1n",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/Lyushen/external-terminal"
-    },
-    "license": "MIT",
-    "categories": [
-        "Other"
-    ],
-    "icon": "images/icon-gray.png",
-    "keywords": [
-        "terminal",
-        "system",
-        "external",
-        "open",
-        "shell",
-        "cmd",
-        "warp",
-        "powershell",
-        "bash",
-        "zsh",
-        "fish",
-        "wsl",
-        "linux",
-        "mac",
-        "windows"
-    ],
-    "activationEvents": [],
-    "main": "./src/extension.js",
+{
+  "name": "open-in-external-terminal",
+  "displayName": "Open in External Terminal",
+  "description": "An extension to open files or directories in the external (system) terminal.",
+  "version": "1.0.7",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "scripts": {
+    "check": "tsc",
+    "lint": "bunx biome lint src/**/*.ts",
+    "format": "bunx biome format --fix src/**/*.ts",
+    "fix": "bunx biome lint --fix src/**/*.ts ",
+    "build": "bun build --external=vscode --target=node --sourcemap=linked --banner='// @ts-nocheck' --outdir=out src/extension.ts",
+    "watch": "bun run build --watch"
+  },
+  "publisher": "Oleksii1n",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lyushen/external-terminal"
+  },
+  "license": "MIT",
+  "categories": [
+    "Other"
+  ],
+  "icon": "images/icon-gray.png",
+  "keywords": [
+    "terminal",
+    "system",
+    "external",
+    "open",
+    "shell",
+    "cmd",
+    "warp",
+    "powershell",
+    "bash",
+    "zsh",
+    "fish",
+    "wsl",
+    "linux",
+    "mac",
+    "windows"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
@@ -75,7 +83,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Arguments to pass to the terminal executable."
+          "description": "Arguments to pass to the terminal executable. Available variables: `${cwd}` - directory in which terminal will open."
         },
         "open-in-external-terminal.interpreterMappings": {
           "type": "object",
@@ -128,5 +136,15 @@
         }
       }
     }
+  },
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "@types/bun": "latest",
+    "@types/node": "^25.0.5",
+    "@types/vscode": "^1.108.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }
