@@ -16,15 +16,6 @@
             ],
             "internalConsoleOptions": "neverOpen",
             "preLaunchTask": "npm: build"
-        },
-        {
-            "name": "Attach to Extension Host",
-            "type": "node",
-            "request": "attach",
-            "port": 9229,
-            "skipFiles": [
-                "<node_internals>/**"
-            ]
         }
     ]
 }
