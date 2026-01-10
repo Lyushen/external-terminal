@@ -1,60 +1,60 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-      // File Layout (disabled, only use tsc for typecheck)
-      // "rootDir": "./src",
-      // "outDir": "./out",
+    // File Layout (disabled, only use tsc for typecheck)
+    // "rootDir": "./src",
+    // "outDir": "./out",
 
-      // Environment Settings
-      // See also https://aka.ms/tsconfig/module
-      "module": "nodenext",
-      "target": "esnext",
-      // Bun
-      "lib": ["esnext"],
-      "types": ["bun"],
+    // Environment Settings
+    // See also https://aka.ms/tsconfig/module
+    "module": "nodenext",
+    "target": "esnext",
+    // Bun
+    "lib": [ "esnext" ],
+    "types": [ "bun" ],
 
-      // Other Outputs
-      "sourceMap": true,
-      "declaration": true,
-      "declarationMap": true,
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
 
-      // Stricter Typechecking Options
-      "noUncheckedIndexedAccess": true,
-      "exactOptionalPropertyTypes": true,
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
 
-      // Style Options
-      "noImplicitReturns": true,
-      "noImplicitOverride": true,
-      // "noUnusedLocals": true,
-      // "noUnusedParameters": true,
-      "noFallthroughCasesInSwitch": true,
-      "noPropertyAccessFromIndexSignature": true,
+    // Style Options
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
 
-      // Recommended Options
-      "strict": true,
-      "jsx": "react-jsx",
-      "verbatimModuleSyntax": true,
-      "isolatedModules": true,
-      "noUncheckedSideEffectImports": true,
-      "moduleDetection": "force",
-      "skipLibCheck": true,
+    // Recommended Options
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
 
-      // Additional strictness
-      // See https://github.com/tsconfig/bases/blob/main/bases/strictest.json
-      "allowUnusedLabels": false,
-      "allowUnreachableCode": false,
+    // Additional strictness
+    // See https://github.com/tsconfig/bases/blob/main/bases/strictest.json
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
 
-      "checkJs": true,
-      "esModuleInterop": true,
+    "checkJs": true,
+    "esModuleInterop": true,
 
-      // My custom strictenss options
-      "noImplicitAny": true,
-      "noErrorTruncation": true,
-      "strictNullChecks": true,
+    // My custom strictenss options
+    "noImplicitAny": true,
+    "noErrorTruncation": true,
+    "strictNullChecks": true,
 
-      // Cosmetic
-      "noEmit": true, // typecheck only
-      "allowImportingTsExtensions": true,
-      "allowArbitraryExtensions": true
+    // Cosmetic
+    "noEmit": true, // typecheck only
+    "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true
   }
 }
