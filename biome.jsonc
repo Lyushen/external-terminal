@@ -1,0 +1,121 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "nursery": {
+        "recommended": true,
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useMaxParams": "info",
+        "useExplicitType": "info",
+        // "noSecrets": "info",
+        "noUnnecessaryConditions": "info"
+      },
+      "correctness": {
+        "recommended": true,
+        "noUnusedLabels": "warn",
+        "noUnusedImports": "info",
+        "noUnusedVariables": "info",
+        "noUnusedFunctionParameters": "info",
+        "noUnusedPrivateClassMembers": "warn"
+      },
+      "complexity": {
+        "recommended": true,
+        "useLiteralKeys": "off"
+      },
+      "suspicious": {
+        "recommended": true,
+        "useIterableCallbackReturn": "info"
+      },
+      "style": {
+        "recommended": true,
+        "useConsistentMemberAccessibility": {
+          "level": "info",
+          "options": {
+            "accessibility": "explicit"
+          }
+        },
+        "useReadonlyClassProperties": {
+          "level": "info",
+          "options": {
+            "checkAllProperties": true
+          }
+        },
+        "useNamingConvention": {
+          "level": "info",
+          "options": {
+            "conventions": [
+              {
+                "selector": {
+                  "kind": "classMember",
+                  "modifiers": [
+                    "private"
+                  ]
+                },
+                "match": "_(.*)"
+              },
+              {
+                "selector": {
+                  "kind": "classProperty",
+                  "modifiers": [
+                    "static",
+                    "readonly"
+                  ]
+                },
+                "formats": [
+                  "CONSTANT_CASE"
+                ]
+              },
+              {
+                "selector": {
+                  "kind": "const",
+                  "scope": "global"
+                },
+                "match": "_{1,2}(.+)_{1,2}|(.+)",
+                "formats": [
+                  "CONSTANT_CASE"
+                ]
+              },
+              {
+                "selector": {
+                  "kind": "interface"
+                },
+                "match": "I(.*)|(.*?)Error",
+                "formats": [
+                  "PascalCase"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "javascript": {
+    "globals": [ "Bun" ],
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "asNeeded",
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "assist": {
+    "enabled": true
+  }
+}
