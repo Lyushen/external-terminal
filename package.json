@@ -9,9 +9,9 @@
   },
   "scripts": {
     "check": "tsc",
-    "lint": "bunx biome lint --fix src/*.ts ",
-    "format": "bunx biome format --fix src/*.ts ",
-    "fix": "bunx biome fix --fix src/*.ts ",
+    "lint": "bunx biome lint src/**/*.ts",
+    "format": "bunx biome format --fix src/**/*.ts",
+    "fix": "bunx biome lint --fix src/**/*.ts ",
     "build": "bun build --external=vscode --target=node --sourcemap=linked --banner='// @ts-nocheck' --outdir=out src/extension.ts",
     "watch": "bun run build --watch"
   },
