@@ -214,17 +214,77 @@ function buildMacCommand(targetDir, fileName, preferredTerminal, argsStr, should
 }
 
 function buildLinuxCommand(targetDir, executionString, preferredTerminal, argsStr, shouldExecute) {
-  const terminal = preferredTerminal || 
+  // 1. Resolve the terminal executable
+  // If VS Code defaults to 'xterm' (often missing on Ubuntu), default to 'gnome-terminal'
+  let term = preferredTerminal || 
     vscode.workspace.getConfiguration('terminal.external').get('linuxExec', 'xterm');
-    
+  
+  if (term === 'xterm' && process.env.XDG_CURRENT_DESKTOP) {
+     term = 'gnome-terminal'; 
+  }
+
+  const termName = path.basename(term).toLowerCase();
+
+  // 2. Define Terminal Profiles (Flags vary wildly on Linux)
+  const profiles = {
+      'gnome-terminal': { cwd: '--working-directory', run: '--',   quoteCwd: true },
+      'tilix':          { cwd: '--working-directory', run: '--',   quoteCwd: true },
+      'xfce4-terminal': { cwd: '--working-directory', run: '-x',   quoteCwd: true },
+      'konsole':        { cwd: '--workdir',           run: '-e',   quoteCwd: true },
+      'terminator':     { cwd: '--working-directory', run: '-x',   quoteCwd: true },
+      'xterm':          { cwd: '',                    run: '-e',   quoteCwd: true },
+      'alacritty':      { cwd: '--working-directory', run: '-e',   quoteCwd: true },
+      'kitty':          { cwd: '--directory',         run: '',     quoteCwd: true } // Kitty runs args directly
+  };
+
+  // Match profile or default to xterm-like behavior
+  let profile = profiles['xterm'];
+  for (const key in profiles) {
+      if (termName.includes(key)) {
+          profile = profiles[key];
+          break;
+      }
+  }
+
+  // 3. Construct Directory Argument
+  let dirArg = '';
+  if (profile.cwd) {
+      const pathStr = profile.quoteCwd ? `"${targetDir}"` : targetDir;
+      // Konsole uses space, Gnome/Tilix usually accept = or space, adhering to space here
+      dirArg = `${profile.cwd} ${pathStr}`; 
+  }
+
+  // 4. Construct Execution Logic
   if (shouldExecute) {
+      // Ensure local script execution (./script.sh)
       if (!executionString.includes(' ')) {
           executionString = `./${executionString}`;
       }
-      return { cmd: `"${terminal}" ${argsStr} -e "${executionString}"` };
+
+      // THE FIX: Mimic "cmd /k" or PowerShell "-NoExit"
+      // 1. Run the command.
+      // 2. Use ';' so if it fails, we still get the shell.
+      // 3. 'exec $SHELL' replaces the process with a new interactive shell.
+      const userShell = process.env.SHELL || 'bash';
+      const keepAliveCmd = `${executionString}; exec ${userShell}`;
+
+      // Handle specific terminal syntaxes
+      if (termName.includes('gnome-terminal') || termName.includes('tilix')) {
+          // Gnome: gnome-terminal -- bash -c "cmd; exec bash"
+          return { cmd: `"${term}" ${argsStr} ${dirArg} ${profile.run} ${userShell} -c "${keepAliveCmd}"` };
+      } 
+      else if (termName.includes('kitty')) {
+          // Kitty: kitty --directory D sh -c "cmd; exec sh"
+          return { cmd: `"${term}" ${argsStr} ${dirArg} ${userShell} -c "${keepAliveCmd}"` };
+      }
+      else {
+          // Standard (XTerm, Konsole, Alacritty): term -e bash -c "cmd; exec bash"
+          return { cmd: `"${term}" ${argsStr} ${dirArg} ${profile.run} ${userShell} -c "${keepAliveCmd}"` };
+      }
   }
 
-  return { cmd: `"${terminal}" ${argsStr}` };
+  // 5. Just open directory
+  return { cmd: `"${term}" ${argsStr} ${dirArg}` };
 }
 
 function quote(s) {
