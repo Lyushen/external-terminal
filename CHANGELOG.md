@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.0.8]
+
+### Fixed
+- **Linux Terminal Freezes**: Fixed a critical issue where VS Code would hang waiting for terminals like Alacritty or Kitty to close. Terminal launching is now fully asynchronous using standard detached processes.
+- **Remote Workspaces**: Added guards to prevent the extension from attempting to launch local terminal binaries on remote paths (SSH, WSL, Dev Containers).
+
+### Added
+- **Show Logs Action**: Error notifications now include a "Show Logs" button for easier troubleshooting.
+
 ## [1.0.7]
 
 ### Added

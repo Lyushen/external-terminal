@@ -1,9 +1,6 @@
 const vscode = require('vscode');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
-const { promisify } = require('util');
-
-const execAsync = promisify(exec);
 
 function activate(context) {
   const outputChannel = vscode.window.createOutputChannel('Open in Terminal');
@@ -35,9 +32,12 @@ function activate(context) {
             }
         }
 
+        // Ensure we only process local 'file' scheme URIs (prevent errors in Remote SSH/WSL)
+        urisToProcess = urisToProcess.filter(u => u.scheme === 'file');
+
         // If still empty, we can't do anything
         if (urisToProcess.length === 0) {
-          vscode.window.showWarningMessage('No file selected or active editor found to open.');
+          vscode.window.showWarningMessage('No local file selected or active editor found to open.');
           return;
         }
 
@@ -94,16 +94,34 @@ function activate(context) {
           log(outputChannel, `Command: ${commandObj.cmd}`, 'debug', logLevel);
 
           try {
-            await execAsync(commandObj.cmd, { cwd: targetDir });
-            log(outputChannel, `Success`, 'info', logLevel);
+            const childProcess = spawn(commandObj.cmd, { 
+                cwd: targetDir,
+                shell: true,
+                detached: true,
+                stdio: 'ignore'
+            });
+
+            childProcess.on('error', (error) => {
+                log(outputChannel, `Failed to spawn: ${error.message}`, 'error', logLevel);
+                vscode.window.showErrorMessage(`Failed to open terminal: ${error.message}`, 'Show Logs').then(selection => {
+                    if (selection === 'Show Logs') outputChannel.show();
+                });
+            });
+
+            childProcess.unref(); // Decouple from VS Code process
+            log(outputChannel, `Terminal spawned successfully`, 'info', logLevel);
           } catch (error) {
             log(outputChannel, `Execution failed: ${error.message}`, 'error', logLevel);
-            vscode.window.showErrorMessage(`Failed to open terminal: ${error.message}`);
+            vscode.window.showErrorMessage(`Failed to open terminal: ${error.message}`, 'Show Logs').then(selection => {
+                if (selection === 'Show Logs') outputChannel.show();
+            });
           }
         }
       } catch (error) {
         log(outputChannel, `Critical error: ${error.message}`, 'error', 'error');
-        vscode.window.showErrorMessage('An unexpected error occurred: ' + error.message);
+        vscode.window.showErrorMessage('An unexpected error occurred: ' + error.message, 'Show Logs').then(selection => {
+            if (selection === 'Show Logs') outputChannel.show();
+        });
       }
     }
   );
@@ -304,4 +322,11 @@ function deactivate() {}
 module.exports = {
   activate,
   deactivate,
+  // Exporting private fns for testing
+  _testExports: {
+    buildPlatformCommand,
+    buildWindowsCommand,
+    buildMacCommand,
+    buildLinuxCommand
+  }
 };
